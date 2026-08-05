@@ -22,6 +22,20 @@ const getAllTodos = (req, res) => {
   res.json({ count: result.length, todos: result });
 };
 
+// GET /todos/search?name=<text> — case-insensitive partial match on title
+const searchTodos = (req, res) => {
+  const { name } = req.query;
+
+  if (typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'name is required and must be a single non-empty string' });
+  }
+
+  const needle = name.trim().toLowerCase();
+  const matched = todos.filter((t) => t.title.toLowerCase().includes(needle));
+
+  res.json({ count: matched.length, todos: matched });
+};
+
 // GET /todos/:id
 const getTodoById = (req, res) => {
   const todo = todos.find((t) => t.id === req.params.id);
@@ -117,4 +131,4 @@ const clearCompleted = (req, res) => {
   res.json({ message: `Deleted ${before - todos.length} completed todo(s)`, deleted: removed });
 };
 
-module.exports = { getAllTodos, getTodoById, createTodo, updateTodo, toggleTodo, deleteTodo, clearCompleted };
+module.exports = { getAllTodos, getTodoById, searchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, clearCompleted };

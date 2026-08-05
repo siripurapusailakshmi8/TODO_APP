@@ -2,6 +2,7 @@ const { Router } = require('express');
 const {
   getAllTodos,
   getTodoById,
+  searchTodos,
   createTodo,
   updateTodo,
   toggleTodo,
@@ -12,6 +13,7 @@ const {
 const router = Router();
 
 router.get('/', getAllTodos);
+router.get('/search', searchTodos);   // must come before /:id
 router.get('/:id', getTodoById);
 router.post('/', createTodo);
 router.put('/:id', updateTodo);
