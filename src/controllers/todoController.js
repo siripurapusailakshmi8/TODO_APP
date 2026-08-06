@@ -3,7 +3,7 @@ const todos = require('../data/todos');
 
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 
-// GET /todos  — list all, with optional ?completed=true/false and ?priority=low|medium|high
+// GET /todos  — list all, with optional ?completed=true/false, ?priority=low|medium|high, ?name=<string>
 const getAllTodos = (req, res) => {
   let result = [...todos];
 
@@ -17,6 +17,11 @@ const getAllTodos = (req, res) => {
       return res.status(400).json({ error: `priority must be one of: ${VALID_PRIORITIES.join(', ')}` });
     }
     result = result.filter((t) => t.priority === req.query.priority);
+  }
+
+  if (req.query.name) {
+    const search = req.query.name.toLowerCase();
+    result = result.filter((t) => t.title.toLowerCase().includes(search));
   }
 
   res.json({ count: result.length, todos: result });
