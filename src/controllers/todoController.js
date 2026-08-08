@@ -19,6 +19,15 @@ const getAllTodos = (req, res) => {
     result = result.filter((t) => t.priority === req.query.priority);
   }
 
+  if (Object.prototype.hasOwnProperty.call(req.query, 'name')) {
+    if (typeof req.query.name !== 'string' || req.query.name.trim() === '') {
+      return res.status(400).json({ error: 'name must be a non-empty string' });
+    }
+
+    const normalizedName = req.query.name.trim().toLowerCase();
+    result = result.filter((t) => t.title.toLowerCase().includes(normalizedName));
+  }
+
   res.json({ count: result.length, todos: result });
 };
 
