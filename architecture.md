@@ -4,7 +4,9 @@
 | --- | --- |
 | Story | `TODO-SEARCH-NAME` |
 | Requirements baseline | Approved `requirements.md`, commit `9e71632cf939aab6e3aa650451f3fc86df090da1` |
-| Architecture status | Draft, awaiting explicit approval |
+| Architecture baseline | Commit `b2b35597fc9ab8ab90d6e0fd5b9fefac122c5dd3` |
+| Architecture status | Design reviewed; material findings resolved; awaiting explicit approval |
+| Design review | `design-review.md`, 2026-08-08 |
 | Scope | Optional title search on `GET /todos` |
 
 ## 1. System Context
@@ -109,7 +111,7 @@ sequenceDiagram
 
 Authentication and authorization changes are out of scope, and the current route has no identity boundary. The search value is untrusted request input but is used only for in-process string comparison; it is never evaluated as code, interpolated into a query language, or sent to another system.
 
-The feature requires no credentials, configuration secrets, tokens, internal URLs, or PII. The controller must not log the raw `name` value. If authentication or authorization is introduced outside this story, its failures must remain explicit hard errors such as `401` or `403`; they must never be converted to an empty successful collection.
+The feature requires no credentials, configuration secrets, tokens, internal URLs, or PII to operate. However, `name` and todo titles are user-controlled free text and may contain personal or sensitive content, so the controller must not log the raw `name` value or matching titles. If authentication or authorization is introduced outside this story, its failures must remain explicit hard errors such as `401` or `403`; they must never be converted to an empty successful collection.
 
 ## 7. Validation, Idempotency, and Conflict Strategy
 
@@ -141,7 +143,7 @@ This order preserves all requests that omit `name`. When both `priority` and `na
 | Valid `name` with no matches | `200` with `{ count: 0, todos: [] }` | Successful empty collection, not `404 Not Found` |
 | Unknown route or todo ID on ID-addressed endpoints | Existing `404` behavior | Resource or route not found; unchanged by this story |
 | Authentication/authorization failure if later introduced | Preserve `401`/`403` | Hard error, never an empty match set |
-| Query/transport parsing failure | Preserve framework error status/handling | Hard error, never an empty match set |
+| Error propagated to the current global error middleware, including body-parser errors | Existing non-sensitive `500` response | Hard error, never an empty match set; the current middleware converts all propagated errors to `500` |
 | Unexpected controller or infrastructure failure | Existing non-sensitive `500` response | Hard error, never an empty match set |
 
 The read-only list operation has no write conflict, version conflict, duplicate creation, or locking strategy.
@@ -182,7 +184,7 @@ Rollback consists of redeploying the immediately preceding application version. 
 | Search comparison | `title` contains trimmed `name` after case normalization; substring, not exact or prefix matching |
 | Mutation | None |
 
-Express query parsing can represent repeated keys as a non-scalar value. Requirements define one optional `name` value but do not define repeated-key behavior. The architecture rejects non-scalar `name` as malformed `400` to keep matching deterministic and avoid implicit coercion; this contract point requires explicit approval with the architecture.
+The installed Express 5.2.1 application uses the default `simple` query parser. A runtime check confirms that repeated keys such as `?name=one&name=two` produce an array, while `?name=` and whitespace-only values remain scalar strings. Requirements define one optional `name` value but do not define repeated-key behavior. The architecture therefore rejects every non-string `name`, including repeated keys, as malformed `400` to keep matching deterministic and avoid implicit coercion. Approval of this architecture approves that public contract clarification.
 
 ### Successful response contract
 
@@ -242,6 +244,7 @@ This response is not shaped as `{ count, todos }`. Existing priority errors, unk
 | Return `200` with an empty collection for valid no-match | Collection search completed successfully; absence of members is not absence of the endpoint or an addressed resource. | `404`: conflates a valid empty query result with missing route/resource. `204`: loses the required response envelope. | FR-004, FR-006, NFR-003 | Consumers can process one list shape for all successful searches. Monitoring must not classify no-match as an error. |
 | Keep the current in-memory ordered array and synchronous scan | Persistence and lifecycle changes are out of scope; stable filtering supplies deterministic order for unchanged data. | Database/index/cache: disproportionate, changes deployment and consistency boundaries, and violates scope. Sorting results: changes existing ordering semantics. | FR-004, FR-007, NFR-001, NFR-002, NFR-003 | Search is `O(n)` time and creates a filtered array; acceptable for current scope but not a scalability design for an unbounded dataset. |
 | Use the built-in `node:test` runner for later focused verification | The package test script is currently non-working; the Node runtime can provide executable tests without selecting a third-party framework. | Leave tests manual: cannot prove NFR metrics. Add Jest/Mocha immediately: dependency and configuration overhead for a small API. | NFR-001, NFR-002, NFR-003 and AC-001 through AC-008 | Stage 5 must activate a working test command and use a small controller/HTTP harness; no dependency is added during architecture. |
+| Reject repeated `name` keys with `400` | Express 5.2.1 parses repeated keys as arrays, while the requirements define one optional value. Requiring a string avoids coercion-dependent matching and gives deterministic validation. | First-value or last-value wins: silently discards caller input. Array coercion: creates undocumented comma-joined search semantics. | FR-001, FR-002, FR-005, NFR-002 | Consumers must send at most one `name`; focused negative verification must cover repeated keys. |
 
 ### Requirement traceability
 
@@ -273,7 +276,17 @@ This response is not shaped as `{ count, todos }`. Existing priority errors, unk
 
 | Item | Status and mitigation |
 | --- | --- |
-| Repeated `name` query keys are unspecified in requirements. | Proposed architecture contract is `400` for a non-scalar parsed value. Approval of this document approves that contract; otherwise requirements clarification is needed before implementation. |
+| Repeated `name` query keys are unspecified in requirements. | Resolved by architecture decision: reject the non-string parsed value with `400`. Express 5.2.1 default-parser behavior was verified during Stage 3; approval of this document approves the clarification. |
 | JavaScript default case conversion is not full locale-aware collation. | Accepted as the dependency-free interpretation of case-insensitive matching; revisit only if product requirements add locale-specific examples. |
 | Linear scanning does not target an unbounded dataset. | Accepted for the explicitly current in-memory dataset; persistence/search indexing requires a future architecture change. |
 | The package has no working automated test suite. | Stage 5 must establish and run a focused `node:test` command before implementation can be considered verified. |
+
+## 13. Design Review Dispositions
+
+| Finding | Disposition | Resulting architecture decision |
+| --- | --- | --- |
+| DR-001: Free-text privacy classification was too strong. | Accepted and resolved. | No PII is required, but query values and titles are treated as potentially sensitive user-controlled text and are excluded from logs. |
+| DR-002: Parser-error status preservation was unsupported by the repository. | Accepted and resolved. | The architecture records the existing catch-all `500` behavior and does not claim framework error statuses survive the global handler. Changing that middleware remains outside this story. |
+| DR-003: Repeated-key behavior needed a final public contract decision. | Accepted and resolved. | Non-string `name` values, including arrays produced from repeated keys, receive `400`; no coercion or value selection is allowed. |
+| Suggestion: add a schema-validation or search dependency. | Rejected. | Native type checks and string/array operations satisfy the approved scope with less dependency and behavior risk. |
+| Suggestion: add rate limiting, pagination, or a search index in this story. | Rejected. | These changes exceed the approved in-memory search scope and would alter existing API or deployment boundaries. |
