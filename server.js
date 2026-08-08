@@ -9,6 +9,7 @@ app.listen(PORT, () => {
   console.log('  GET    /todos');
   console.log('  GET    /todos?completed=true|false');
   console.log('  GET    /todos?priority=low|medium|high');
+  console.log('  GET    /todos?name=<search>');
   console.log('  GET    /todos/:id');
   console.log('  POST   /todos');
   console.log('  PUT    /todos/:id');
