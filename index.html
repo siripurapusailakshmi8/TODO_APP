@@ -162,6 +162,24 @@
       background: var(--cp-accent-hover);
     }
 
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--cp-border);
+    }
+
+    .search-bar label {
+      color: var(--cp-text-muted);
+      font-size: 0.875rem;
+      white-space: nowrap;
+    }
+
+    .search-input {
+      flex: 1;
+    }
+
     .toolbar {
       display: flex;
       align-items: center;
@@ -313,6 +331,18 @@
         <button class="primary-button" type="submit">Add task</button>
       </form>
 
+      <div class="search-bar">
+        <label for="search-input">Search tasks</label>
+        <input
+          class="todo-input search-input"
+          id="search-input"
+          type="search"
+          placeholder="Search by name…"
+          aria-label="Search tasks by name"
+          autocomplete="off"
+        >
+      </div>
+
       <div class="toolbar">
         <strong id="summary">3 tasks</strong>
         <div class="filters" aria-label="Filter tasks">
@@ -335,12 +365,14 @@
     const todoList = document.querySelector("#todo-list");
     const addForm = document.querySelector("#add-form");
     const todoInput = document.querySelector("#todo-input");
+    const searchInput = document.querySelector("#search-input");
     const summary = document.querySelector("#summary");
     const remainingCount = document.querySelector("#remaining-count");
     const clearCompleted = document.querySelector("#clear-completed");
     const filterButtons = [...document.querySelectorAll("[data-filter]")];
 
     let currentFilter = "all";
+    let searchQuery = "";
     let nextId = 4;
     let todos = [
       { id: 1, title: "Review the project brief", completed: true },
@@ -349,9 +381,16 @@
     ];
 
     function visibleTodos() {
-      if (currentFilter === "active") return todos.filter((todo) => !todo.completed);
-      if (currentFilter === "completed") return todos.filter((todo) => todo.completed);
-      return todos;
+      let result = todos;
+      if (currentFilter === "active") result = result.filter((todo) => !todo.completed);
+      else if (currentFilter === "completed") result = result.filter((todo) => todo.completed);
+      const query = searchQuery.trim().toLowerCase();
+      if (query) {
+        result = result.filter(
+          (todo) => typeof todo.title === "string" && todo.title.toLowerCase().includes(query)
+        );
+      }
+      return result;
     }
 
     function render() {
@@ -362,7 +401,8 @@
       remainingCount.textContent = `${remaining} remaining`;
 
       if (visible.length === 0) {
-        todoList.innerHTML = '<li class="empty-state">No tasks in this view.</li>';
+        const msg = searchQuery.trim() ? "No tasks match your search." : "No tasks in this view.";
+        todoList.innerHTML = `<li class="empty-state" role="status">${msg}</li>`;
         return;
       }
 
@@ -438,6 +478,11 @@
 
     clearCompleted.addEventListener("click", () => {
       todos = todos.filter((todo) => !todo.completed);
+      render();
+    });
+
+    searchInput.addEventListener("input", () => {
+      searchQuery = searchInput.value;
       render();
     });
 

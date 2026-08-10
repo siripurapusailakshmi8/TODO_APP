@@ -19,6 +19,15 @@ const getAllTodos = (req, res) => {
     result = result.filter((t) => t.priority === req.query.priority);
   }
 
+  if (typeof req.query.name === 'string') {
+    const query = req.query.name.trim().toLowerCase();
+    if (query) {
+      result = result.filter(
+        (t) => typeof t.title === 'string' && t.title.toLowerCase().includes(query)
+      );
+    }
+  }
+
   res.json({ count: result.length, todos: result });
 };
 

@@ -1,9 +1,11 @@
+const path = require('path');
 const express = require('express');
 const todoRoutes = require('./routes/todoRoutes');
 
 const app = express();
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '..')));
 
 // Health check
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
