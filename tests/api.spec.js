@@ -97,4 +97,12 @@ test.describe('GET /todos — name filter', () => {
     const res = await request.get('/todos?priority=urgent');
     expect(res.status()).toBe(400);
   });
+
+  test('repeated name param applies no filter', async () => {
+    // Express parses ?name=a&name=b as an array; typeof !== 'string' → guard skips filter
+    const res = await request.get('/todos?name=book&name=workout');
+    expect(res.status()).toBe(200);
+    const { count } = await res.json();
+    expect(count).toBe(3);
+  });
 });
